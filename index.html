@@ -568,6 +568,98 @@ html[data-theme="light"] #eggOvl .eggb{color:#fff}
   #eggOvl .eggface{animation:none}
   #moodfx{animation:none!important}
 }
+
+/* =====================================================================
+   ✅✅ 新增代码块 ③（补丁层 CSS）：移动端 / 观感 局部修补
+   ------------------------------------------------------------------
+   · 全部写在原有样式与「自动主题层」之后，只用覆盖规则，不改任何原规则；
+   · 每条都对应审计报告里的一条实测问题，编号 P-M1…P-M9 / P-J1…P-J4；
+   · 整块删除即回到当前线上版本（零耦合）。
+   ===================================================================== */
+/* P-M1 ≤480px 时 HUD 吸顶 top 原为 45px，顶栏实测 47px，滚动时上沿被裁 2px */
+@media (max-width:480px){ .hud{top:47px} }
+
+/* P-M2 顶栏 5 个按钮实测仅 28px 高（iOS/Android 建议 ≥44px）：
+        用伪元素把热区扩到 ~46px，按钮视觉尺寸与顶栏高度完全不变 */
+.topbar .tbtn{position:relative}
+.topbar .tbtn::before{content:"";position:absolute;left:-3px;right:-3px;top:-9px;bottom:-9px}
+
+/* P-M3 飘字 toast 原固定在 top:74px（多条时 74/116/158），正好压在 HUD 的
+        灵力/道心条上（实测重叠 35px）：这里先整体下移兜底，块 ④ 再把窄屏
+        的飘字改到底部吸附（等效 snackbar），两条都不再遮挡数值与题干 */
+@media (max-width:719px), (max-height:540px){
+  .pop{margin-top:74px;max-width:86vw;text-align:center;font-size:12px;padding:5px 12px}
+}
+
+/* P-M4 触屏：连点选项时禁止双击缩放与长按选词（原 touch-action/user-select 均为默认） */
+@media (hover:none){
+  button,.chip,.tab,.next,.close,.dx,.nb,.hist .h{
+    -webkit-user-select:none;user-select:none;touch-action:manipulation;
+  }
+}
+
+/* P-M5 iOS Safari 会自动放大正文（text-size-adjust:auto），字号观感漂移 */
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%}
+
+/* P-M6 游戏内上下滚动时屏蔽下拉刷新/横向回弹，避免误触离开页面 */
+html,body{overscroll-behavior-y:contain;overscroll-behavior-x:none}
+
+/* P-M7 100vh 在 iOS 上含地址栏高度，底部一行常被切成半截 */
+@supports (height:100svh){ body{min-height:100svh} #wrap{min-height:100svh} }
+
+/* P-M8 手机横屏（可视高 ~390px）：HUD 实测 92px 吃掉 24% 屏幕，
+        压缩后题干+选项可同屏，减少「看不到继续按钮」 */
+@media (orientation:landscape) and (max-height:540px){
+  .hud{padding:4px 0 4px}
+  .hud .bars .bar{gap:6px}
+  .hud .stats{gap:5px 8px}
+  .hud .bag{margin-top:3px}
+  #buffbar{margin-top:2px}
+}
+/* P-M9 结算「继续」按钮：解析一长就被顶到首屏外（实测 iPhone13 只剩 10px 余量），
+        窄屏改为底部常驻，单手不用来回找按钮；#wrap 预留 56px 避免压住最后一行 */
+@media (max-width:719px){
+  body[data-state="result"] #go, body[data-state="break"] #go{
+    position:sticky;bottom:12px;z-index:8;box-shadow:0 10px 26px #00000059;
+  }
+  #wrap{padding-bottom:56px}
+}
+/* 结算条在窄屏略微贴底时最后 3px 会被切掉 */
+@media (max-width:719px){ .res{padding:11px 12px} }
+/* 浅色主题下的浮层/彩蛋弹窗已由 ① 覆盖，这里补一个滚动惯性 */
+.sheet{-webkit-overflow-scrolling:touch}
+
+/* =====================================================================
+   ✅✅ 新增代码块 ⑥-CSS（特效层）：点击「星环炸裂」
+   ------------------------------------------------------------------
+   · 只在 #sring 容器内播放，容器 pointer-events:none，永远不吃点击；
+   · 颜色全部走 CSS 变量，跟随块 ① 的 data-mood / data-theme，JS 不写颜色；
+   · 减弱动效（prefers-reduced-motion）时整层静默；
+   · 删掉本块 + 块 ⑥-JS 即可完全退回原状。
+   ===================================================================== */
+#sring{position:fixed;inset:0;z-index:99;pointer-events:none;
+  --sc:#7fd6ff;--sg:rgba(127,214,255,.5)}
+html[data-mood="bright"] #sring{--sc:#ffc94d;--sg:rgba(255,201,77,.6)}
+html[data-mood="bright"][data-theme="light"] #sring{--sc:#9c6a00;--sg:rgba(180,125,0,.5)}
+html[data-mood="storm"] #sring{--sc:#b7a4ff;--sg:rgba(150,120,255,.55)}
+html[data-mood="crash"] #sring{--sc:#ff6f85;--sg:rgba(255,80,110,.6)}
+#sring i{position:fixed;left:var(--x);top:var(--y);display:block;opacity:0;font-style:normal}
+#sring .srh{margin:calc(var(--sr)/-2) 0 0 calc(var(--sr)/-2);width:var(--sr);height:var(--sr);
+  border:2px solid var(--sc);border-radius:50%;
+  box-shadow:0 0 14px var(--sg),inset 0 0 12px var(--sg);
+  animation:sdRing var(--sd) cubic-bezier(.16,.84,.3,1) forwards}
+#sring .srh.e{border-width:1px;animation-duration:calc(var(--sd)*1.3);animation-delay:.08s}
+#sring .srf{margin:-13px 0 0 -13px;width:26px;height:26px;border-radius:50%;
+  background:radial-gradient(circle,var(--sc) 0%,rgba(0,0,0,0) 70%);
+  animation:sdFlash 240ms ease-out forwards}
+#sring .srd{margin:-2.5px 0 0 -2.5px;width:5px;height:5px;border-radius:50%;background:var(--sc);
+  box-shadow:0 0 8px var(--sg);animation:sdFly var(--sd) ease-out forwards}
+#sring .srg{margin:-8px 0 0 -8px;font-size:13px;color:var(--sc);
+  text-shadow:0 0 8px var(--sg);animation:sdFly calc(var(--sd)*1.1) ease-out forwards}
+@keyframes sdRing{0%{opacity:.9;transform:scale(.14)}62%{opacity:.38}100%{opacity:0;transform:scale(1)}}
+@keyframes sdFlash{0%{opacity:.95;transform:scale(.35)}100%{opacity:0;transform:scale(1.6)}}
+@keyframes sdFly{0%{opacity:1;transform:translate(0,0) scale(1)}100%{opacity:0;transform:translate(var(--dx),var(--dy)) scale(.2)}}
+@media (prefers-reduced-motion:reduce){#sring{display:none}}
 </style>
 </head>
 <body data-state="boot">
@@ -3169,7 +3261,7 @@ var AUTO_THEME={
   dwell:1000,        /* 切换冷却 ms（crash 无视冷却，立刻变红） */
   poll:500,          /* 兜底轮询 ms（主链路由 updateHud 包装驱动） */
   /* —— 彩蛋：连续快速点击「↺ 重置」need 次 —— */
-  egg:{need:5, gap:900, hold:650}
+  egg:{need:5, gap:900, hold:420}
 };
 
 /* 心境 → 深/浅底 + 文案 */
@@ -3401,6 +3493,241 @@ function boot(){
 if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',boot);
 else boot();
 
+})();
+</script>
+
+<!-- =====================================================================
+     ✅✅ 新增代码块 ④（补丁层 JS）：四处运行时兜底，不动主干逻辑
+     ------------------------------------------------------------------
+     · P-J1 浅色主题时暂停星空 canvas 的 rAF（原层只把 opacity 设为 0，
+            实测仍以 ~60fps 在跑，白白耗电）；切回深色自动恢复；
+     · P-J2 「读档续玩」加 try/catch：脏存档/旧格式存档不再抛异常卡死；
+     · P-J3 触屏设备把页脚的「1-5 速选 · Enter 继续 · D 翻手册」换成触屏说明；
+     · P-J4 窄屏把飘字改到底部吸附，避免盖住 HUD 数值与题干；
+     · 全部包在 try/catch 里，整块删除即回到当前线上版本。
+     ===================================================================== -->
+<script>
+(function(){
+  'use strict';
+  var root=document.documentElement;
+
+  /* P-J1 浅色 = 不需要星屑背景，停掉绘制循环 */
+  function idleStars(){
+    try{
+      if(typeof Stars==='undefined'||!Stars||!Stars.cv||!Stars.cx) return;
+      var light=(root.getAttribute('data-theme')==='light');
+      var rm=(typeof reducedMotion==='function')&&reducedMotion();
+      if(light){
+        if(Stars.raf){ cancelAnimationFrame(Stars.raf); Stars.raf=0; }
+      }else if(!Stars.raf && !document.hidden && !rm){
+        Stars.loop();
+      }
+    }catch(e){}
+  }
+
+  /* P-J2 读档失败兜底：清掉坏档 + 回星庭，而不是留一个抛错的空局 */
+  function guardResume(){
+    try{
+      var rs=document.getElementById('resume');
+      if(!rs||rs.__guard===1) return;
+      var orig=rs.onclick;
+      if(typeof orig!=='function') return;              /* 本轮还没绑定，等下次 */
+      rs.__guard=1;
+      rs.onclick=function(){
+        try{ orig.apply(this,arguments); }
+        catch(err){
+          try{ if(typeof clearRun==='function') clearRun(); }catch(e2){}
+          try{ if(typeof home==='function') home(); }catch(e3){}
+          try{ if(typeof pop==='function') pop('存档已失效，已为你回到星庭'); }catch(e4){}
+          try{ console.warn('[Patch] resume failed:',err); }catch(e5){}
+        }
+      };
+    }catch(e){}
+  }
+
+  /* P-J3 页脚快捷键提示：纯触屏设备显示触屏说明（只替换文案） */
+  var isTouch=(function(){
+    try{ return !!(window.matchMedia&&matchMedia('(hover:none) and (pointer:coarse)').matches); }
+    catch(e){ return false; }
+  })();
+  function footFix(){
+    if(!isTouch) return;
+    try{
+      var f=document.getElementById('dexLine');
+      if(f&&f.textContent.indexOf('1-5 速选')>=0){
+        f.textContent=f.textContent
+          .replace('1-5 速选 · Enter 继续 · D 翻手册','轻点选项作答 · 下滑看解析 · 顶部按钮翻手册');
+      }
+    }catch(e){}
+  }
+  if(isTouch){
+    try{
+      if(typeof updateFoot==='function'&&updateFoot.__patched!==1){
+        var _of=updateFoot;
+        var _nf=function(){ try{ _of.apply(this,arguments); }catch(e){} footFix(); };
+        _nf.__patched=1; updateFoot=_nf;
+      }
+    }catch(e){}
+    footFix();
+  }
+
+  /* P-J4 窄屏：把飘字从 top:74px 搬到底部吸附（只改节点样式，不动 pumpToast 逻辑） */
+  var narrow=window.matchMedia?matchMedia('(max-width:719px), (max-height:540px)'):null;
+  function toBottom(){
+    try{
+      if(!narrow||!narrow.matches) return;
+      var ds=document.querySelectorAll('.pop');
+      for(var i=0;i<ds.length;i++){
+        var d=ds[i]; if(d.__snk===1) continue; d.__snk=1;
+        var t=parseFloat(d.style.top)||74;
+        d.style.top='auto'; d.style.marginTop='0';
+        d.style.bottom=(78+(t-74))+'px';   /* 74→78px, 116→120px, 158→162px，始终高于 sticky 的「继续」按钮 */
+      }
+    }catch(e){}
+  }
+  try{
+    if(typeof pumpToast==='function'&&pumpToast.__snk!==1){
+      var _pt=pumpToast;
+      var _np=function(){ _pt.apply(this,arguments); toBottom(); };
+      _np.__snk=1; pumpToast=_np;
+    }
+  }catch(e){}
+
+  function tick(){ try{ idleStars(); }catch(e){} try{ guardResume(); }catch(e){} try{ toBottom(); }catch(e){} }
+  if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',tick);
+  setInterval(tick,500);
+  tick();
+})();
+</script>
+
+<!-- =====================================================================
+     ✅✅ 新增代码块 ⑤（音效层）：点击音换成「星光音」
+     ------------------------------------------------------------------
+     · 原版的普通按钮点击音是 AudioFX.click() —— 760Hz→520Hz 单音 60ms，
+       偏「滴」的提示音；这里只在运行时替换掉这一个方法的实现，
+       所有调用点（顶栏按钮、浮层、抽签、中性结算）自动换成星光音；
+     · 星光音 = 五声音阶随机取一音 + 上滑主音 + 两个高次泛音，
+       和浅色心境的 BGM 同一套音阶，听起来像星屑落下来；
+     · 只复用原有 AudioFX.ensure/tone 原语，不新建 AudioContext，
+       自动尊重 🔊/🔇 总开关与首次手势解锁；整块删除即回到原来的「滴」。
+     ===================================================================== -->
+<script>
+(function(){
+  'use strict';
+  var TW={
+    /* C 宫五声（C-D-E-G-A）两个八度，和 bright 心境的 BGM 音阶一致 */
+    scale:[523.25,587.33,659.25,783.99,880.00,1046.50,1174.66,1318.51,1567.98,1760.00],
+    vol:1.00,      /* 总音量倍率：想更轻就调小，0.6 ≈ 比原版「滴」还轻 */
+    dur:0.30,      /* 主音衰减长度（秒）*/
+    gap:36,        /* 两次点击音的最小间隔 ms，防连点叠成一片噪音 */
+    on:true        /* 本层独立开关：设 false 立刻回到原版点击音 */
+  };
+  try{ window.STAR_CLICK=TW; }catch(e){}
+
+  var lastAt=0, origClick=null;
+
+  function twinkle(){
+    try{
+      if(typeof AudioFX==='undefined'||!AudioFX.on) return;      /* 总开关关着就完全静音 */
+      var c=AudioFX.ensure?AudioFX.ensure():null;                 /* 复用原有 ctx / 手势解锁 */
+      if(!c||typeof AudioFX.tone!=='function') return;
+      /* 后台标签页里 ctx 常被挂起，此时排下去的音符会攒到恢复的一瞬间一起炸出来，
+         所以页面不可见时直接不出声（原版单音 click 也有同样风险，这里顺手挡掉） */
+      if(document.hidden) return;
+      var now=Date.now();
+      if(now-lastAt<TW.gap) return; lastAt=now;
+      var f=TW.scale[(Math.random()*TW.scale.length)|0], v=TW.vol;
+      AudioFX.tone(f,          0,    TW.dur,     'sine', 0.050*v, f*1.19);  /* 上滑主音 */
+      AudioFX.tone(f*2,        0.035, TW.dur*0.66,'sine', 0.022*v);         /* 八度泛音 */
+      AudioFX.tone(f*3.01,     0.070, TW.dur*0.42,'sine', 0.011*v);         /* 微失谐 → 星屑感 */
+    }catch(e){}
+  }
+
+  try{
+    if(typeof AudioFX!=='undefined'&&AudioFX.click&&AudioFX.click.__star!==1){
+      origClick=AudioFX.click;                    /* 保留原方法，STAR_CLICK.on=false 时用它发原声 */
+      var sw=function(){
+        if(TW.on){ twinkle(); return; }
+        if(typeof origClick==='function'){ try{ origClick.call(AudioFX); }catch(e3){} }
+      };
+      sw.__star=1; AudioFX.click=sw;
+    }
+  }catch(e){}
+})();
+</script>
+
+<!-- =====================================================================
+     ✅✅ 新增代码块 ⑥-JS（特效层）：点击「星环炸裂」
+     ------------------------------------------------------------------
+     · 只新增 2 个监听：window 捕获阶段 click + visibilitychange 清理；
+     · 不包装任何原有函数、不调用 AudioFX、不读不写任何存档键；
+     · 热区/彩蛋/滚动完全不受影响（容器 pointer-events:none）；
+     · 复用原版 reducedMotion()：开了「减弱动效」就不画；
+     · 并发硬上限 + 定时回收，切后台立刻清空，节点不会堆积；
+     · 整块删除后游戏照原样运行（零耦合）。
+     · 控制台可调：STAR_RING.on=false 关掉，.shards/.dur/.r/.spread/.max 改手感。
+     ===================================================================== -->
+<script>
+(function(){
+'use strict';
+var SR={ on:true, shards:9, dur:.52, r:82, spread:56, max:5 };
+try{ window.STAR_RING=SR; }catch(e){}
+var host=null, GL=['✦','✧','⋆','✩'], curR=82;
+var SEL='button,.chip,.tab,.next,.close,.dx,.nb,.hist .h';
+var SKIP='.chip.passive,.chip.lv,#buffbar .chip';
+
+function mount(){
+  if(host) return;
+  var d=document.createElement('div'); d.id='sring';
+  try{ document.body.appendChild(d); host=d; }catch(e){ host=null; }
+}
+function one(cls,x,y,dur,dx,dy,txt){
+  var n=document.createElement('i'); n.className=cls;
+  n.style.setProperty('--x',x+'px'); n.style.setProperty('--y',y+'px');
+  n.style.setProperty('--sd',dur.toFixed(3)+'s');
+  if(dx!==undefined){ n.style.setProperty('--dx',dx+'px'); n.style.setProperty('--dy',dy+'px'); }
+  if(txt) n.textContent=txt; else n.style.setProperty('--sr',curR+'px');
+  host.appendChild(n); return n;
+}
+function spawn(x,y){
+  try{
+    if(!SR.on) return;
+    if(typeof reducedMotion==='function' && reducedMotion()) return;
+    if(document.hidden) return;
+    mount(); if(!host) return;
+    var D=Math.min(.9,Math.max(.12,SR.dur)), R=Math.min(320,Math.max(10,SR.r));
+    var S=Math.min(260,Math.max(6,SR.spread)), K=Math.min(16,Math.max(0,SR.shards|0));
+    if(!isFinite(x)||!isFinite(y)) return;
+    curR=R;
+    var made=[ one('srf',x,y,D), one('srh',x,y,D), one('srh e',x,y,D*1.3) ], i;
+    for(i=0;i<K;i++){
+      var a=Math.PI*2*i/K+Math.random()*.6, d=S*(.55+Math.random()*.75), du=D*(.8+Math.random()*.5);
+      made.push(one(i%2?'srg':'srd',x,y,du,(Math.cos(a)*d).toFixed(1),(Math.sin(a)*d).toFixed(1),
+                     i%2?GL[(Math.random()*GL.length)|0]:null));
+    }
+    while(host.childElementCount>SR.max*14){ host.removeChild(host.firstElementChild); }
+    setTimeout(function(){ for(var j=0;j<made.length;j++){ var n=made[j];
+      if(n.parentNode) n.parentNode.removeChild(n); } }, D*1400+340);
+  }catch(err){}
+}
+function at(e){
+  try{
+    var t=e.target;
+    if(!t||!t.closest) return;
+    var el=t.closest(SEL); if(!el) return;
+    if(t.closest(SKIP)) return;
+    var x=e.clientX, y=e.clientY;
+    if(!x&&!y){ var r=el.getBoundingClientRect();
+      if(!r.width&&!r.height) return;
+      x=r.left+r.width/2; y=r.top+r.height/2; }
+    spawn(x,y);
+  }catch(err){}
+}
+function bind(){ try{ window.addEventListener('click',at,true); }catch(e){} }
+if(document.readyState==='loading') document.addEventListener('DOMContentLoaded',bind); else bind();
+document.addEventListener('visibilitychange',function(){
+  if(document.hidden&&host){ while(host.firstChild) host.removeChild(host.firstChild); }
+},true);
 })();
 </script>
 </body>
